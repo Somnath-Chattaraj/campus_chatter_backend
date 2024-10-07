@@ -8,11 +8,10 @@ datasource db {
 }
 
 model User {
-
   user_id              String       @id @default(cuid())
   email                String       @unique
   name                 String?
-  password             String
+  password             String?
   createdAt            DateTime     @default(now())
   emailVerified        Boolean      @default(false)
   collegeEmailVerified Boolean      @default(false)
@@ -20,19 +19,19 @@ model User {
   reviews              Review[]
   Post                 Post[]
   Comment              Comment[]
-  chatRooms             ChatRoom[] @relation("UserChatRooms")
-  sentMessages          Message[] @relation("SentMessages")
-
+  chatRooms            ChatRoom[]   @relation("UserChatRooms")
+  sentMessages         Message[]    @relation("SentMessages")
+  Like                 Like[]
 }
 
 model College {
-  college_id String    @id @default(uuid())
+  college_id String       @id @default(uuid())
   name       String
   location   String
   courses    Course[]
   reviews    Review[]
   Post       Post[]
-  Comment    Comment[]
+  UserCourse UserCourse[]
 }
 
 model Course {
@@ -43,8 +42,6 @@ model Course {
   College     College?     @relation(fields: [college_id], references: [college_id])
   reviews     Review[]
   userCourses UserCourse[]
-  Post        Post[]
-  Comment     Comment[]
 }
 
 model Review {
@@ -62,58 +59,61 @@ model Review {
 }
 
 model UserCourse {
-  userCourse_id String @id @default(cuid())
+  userCourse_id String  @id @default(cuid())
   user_id       String
   course_id     String
-  User          User   @relation(fields: [user_id], references: [user_id])
-  Course        Course @relation(fields: [course_id], references: [course_id])
+  college_id    String
+  User          User    @relation(fields: [user_id], references: [user_id])
+  Course        Course  @relation(fields: [course_id], references: [course_id])
+  College       College @relation(fields: [college_id], references: [college_id])
 }
 
-
 model ChatRoom {
-  id       String   @id @default(uuid())
-  users    User[]   @relation("UserChatRooms")
+  id       String    @id @default(uuid())
+  users    User[]    @relation("UserChatRooms")
   messages Message[]
 }
 
 model Message {
-  id        String   @id @default(uuid())
-  content   String
-  timestamp DateTime @default(now())
-  senderId  String
+  id         String   @id @default(uuid())
+  content    String
+  timestamp  DateTime @default(now())
+  senderId   String
   chatRoomId String
-  sender    User     @relation("SentMessages", fields: [senderId], references: [user_id])
-  chatRoom  ChatRoom @relation(fields: [chatRoomId], references: [id])
-  
- }
+  sender     User     @relation("SentMessages", fields: [senderId], references: [user_id])
+  chatRoom   ChatRoom @relation(fields: [chatRoomId], references: [id])
+}
 
 model Post {
   post_id    String    @id @default(cuid())
   user_id    String
   college_id String
-  course_id  String
   title      String
   content    String
+  likes      Int       @default(0)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   User       User      @relation(fields: [user_id], references: [user_id])
   College    College   @relation(fields: [college_id], references: [college_id])
-  Course     Course    @relation(fields: [course_id], references: [course_id])
   Comments   Comment[]
+  Like       Like[]
 }
 
 model Comment {
   comment_id String   @id @default(cuid())
   post_id    String
   user_id    String
-  college_id String
-  course_id  String
   content    String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   User       User     @relation(fields: [user_id], references: [user_id])
-  College    College  @relation(fields: [college_id], references: [college_id])
-  Course     Course   @relation(fields: [course_id], references: [course_id])
   Post       Post     @relation(fields: [post_id], references: [post_id])
+}
 
+model Like {
+  like_id String @id @default(cuid())
+  user_id String
+  post_id String
+  User    User   @relation(fields: [user_id], references: [user_id])
+  Post    Post   @relation(fields: [post_id], references: [post_id])
 }
