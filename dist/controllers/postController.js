@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.searchPosts = exports.unlikePost = exports.postLiked = exports.createComment = exports.fetchSinglePost = exports.likePost = exports.fetchPosts = exports.createPost = exports.getCommunities = void 0;
+exports.getAllCommunities = exports.searchPosts = exports.unlikePost = exports.postLiked = exports.createComment = exports.fetchSinglePost = exports.likePost = exports.fetchPosts = exports.createPost = exports.getCommunities = void 0;
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const fuse_js_1 = __importDefault(require("fuse.js"));
@@ -110,11 +110,12 @@ const createPost = (0, express_async_handler_1.default)((req, res, next) => __aw
 exports.createPost = createPost;
 // @ts-ignore
 const fetchPosts = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { page } = req.body;
+    const { page, collegeId } = req.body;
     const pageNumber = page;
-    const postsPerPage = 3;
+    const postsPerPage = 4;
     const offset = (pageNumber - 1) * postsPerPage;
     const posts = yield prisma_1.default.post.findMany({
+        where: collegeId ? { college_id: collegeId } : {},
         orderBy: {
             createdAt: "desc",
         },
@@ -126,6 +127,11 @@ const fetchPosts = (0, express_async_handler_1.default)((req, res) => __awaiter(
             College: {
                 select: {
                     name: true,
+                },
+            },
+            User: {
+                select: {
+                    username: true,
                 },
             },
         },
@@ -192,6 +198,11 @@ const fetchSinglePost = (0, express_async_handler_1.default)((req, res) => __awa
                     name: true,
                 },
             },
+            User: {
+                select: {
+                    username: true,
+                },
+            },
             Comments: {
                 select: {
                     comment_id: true,
@@ -199,7 +210,7 @@ const fetchSinglePost = (0, express_async_handler_1.default)((req, res) => __awa
                     user_id: true,
                     User: {
                         select: {
-                            name: true,
+                            username: true,
                         },
                     },
                 },
@@ -291,3 +302,17 @@ const unlikePost = (0, express_async_handler_1.default)((req, res) => __awaiter(
     return res.status(200).json({ updatedPost });
 }));
 exports.unlikePost = unlikePost;
+// @ts-ignore
+const getAllCommunities = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const college = yield prisma_1.default.college.findMany({
+        orderBy: {
+            name: "asc",
+        },
+        select: {
+            college_id: true,
+            name: true,
+        },
+    });
+    return res.status(200).json({ college });
+}));
+exports.getAllCommunities = getAllCommunities;

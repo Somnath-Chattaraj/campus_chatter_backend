@@ -6,61 +6,140 @@ import bcrypt from "bcrypt";
 import sendMail from "../mail/sendMail";
 import { Verifier } from "academic-email-verifier";
 import checkCollegeEmail from "../mail/checkAcademic";
+import { registerSchema } from "../validation/registerSchema";
 
-//@ts-ignore
-const googleSignInOrSignUp = asyncHandler(async (req: Request, res: Response) => {
-  const{email,displayName}=req.body;
-  const user = await prisma.user.findUnique({
-    where: {
-      email,
-    },
-  });
-  if (!user) {
-    const user = await prisma.user.create({
-      // @ts-ignore
-      data: {
+const googleSignInOrSignUp = asyncHandler(
+  //@ts-ignore
+  async (req: Request, res: Response) => {
+    const { email, displayName } = req.body;
+    if (!process.env.SECRET) {
+      throw new Error("Secret not found");
+    }
+    const user = await prisma.user.findUnique({
+      where: {
         email,
-        name:displayName,
-        collegeEmailVerified: false,
-        emailVerified:true,
       },
     });
-    const exp = Date.now() + 1000 * 60 *60*24*30;
-    // @ts-ignore
+    if (!user) {
+      let isCollegeEmail;
+
+      if (checkCollegeEmail(email)) {
+        isCollegeEmail = true;
+      } else {
+        isCollegeEmail = await Verifier.isAcademic(email);
+      }
+      const user = await prisma.user.create({
+        data: {
+          email,
+          collegeEmailVerified: isCollegeEmail,
+          emailVerified: true,
+        },
+      });
+      const exp = Date.now() + 1000 * 60 * 60 * 24 * 30;
+      const token = jwt.sign({ sub: user.user_id, exp }, process.env.SECRET);
+      res.cookie("Authorization", token, {
+        httpOnly: true,
+        secure: false,
+        sameSite: "lax",
+      });
+      const userId = user.user_id;
+      const username = null;
+      return res.status(201).json({ isCollegeEmail, userId, username });
+    }
+    const exp = Date.now() + 1000 * 60 * 60 * 24 * 30;
+    const isCollegeEmail = false;
     const token = jwt.sign({ sub: user.user_id, exp }, process.env.SECRET);
     res.cookie("Authorization", token, {
       httpOnly: true,
       secure: false,
       sameSite: "lax",
     });
-    return res.status(201).json({ message: "User created" });
+    const username = user.username;
+    res.status(200).json({ isCollegeEmail, username });
   }
-  const exp = Date.now() + 1000 * 60 * 60 * 24 * 30;
-  // @ts-ignore
-  const token = jwt.sign({ sub: user.user_id, exp }, process.env.SECRET);
-  res.cookie("Authorization", token, {
-    httpOnly: true,
-    secure: false,
-    sameSite: "lax",
-  });
-  res.status(200).json({ message: "User logged in" });
-});
+);
 
+const githubSignInOrSignUp = asyncHandler(
+  //@ts-ignore
+  async (req: Request, res: Response) => {
+    let { email } = req.body;
+    if (!process.env.SECRET) {
+      throw new Error("Secret not found");
+    }
+    const user = await prisma.user.findUnique({
+      where: {
+        email,
+      },
+    });
+
+    if (!user) {
+      let isCollegeEmail;
+
+      if (checkCollegeEmail(email)) {
+        isCollegeEmail = true;
+      } else {
+        isCollegeEmail = await Verifier.isAcademic(email);
+      }
+      const user = await prisma.user.create({
+        data: {
+          email,
+          collegeEmailVerified: isCollegeEmail,
+          emailVerified: true,
+        },
+      });
+      const exp = Date.now() + 1000 * 60 * 60 * 24 * 30;
+      const token = jwt.sign({ sub: user.user_id, exp }, process.env.SECRET);
+      res.cookie("Authorization", token, {
+        httpOnly: true,
+        secure: false,
+        sameSite: "lax",
+      });
+      const userId = user.user_id;
+      const username = null;
+      return res.status(201).json({ isCollegeEmail, userId, username });
+    }
+    const exp = Date.now() + 1000 * 60 * 60 * 24 * 30;
+    const isCollegeEmail = false;
+    const token = jwt.sign({ sub: user.user_id, exp }, process.env.SECRET);
+    res.cookie("Authorization", token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",
+    });
+    const username = user.username;
+    res.status(200).json({ isCollegeEmail, username });
+  }
+);
 
 // @ts-ignore
 const registerUser = asyncHandler(async (req: Request, res: Response) => {
-  const { email, name, password, collegeName, courseName, isOnline, location } =
-    req.body;
+  const {
+    email,
+    username,
+    password,
+    collegeName,
+    courseName,
+    isOnline,
+    location,
+  } = req.body;
+  if (!process.env.SECRET) {
+    throw new Error("Secret not found");
+  }
   const hashedPassword = await bcrypt.hash(password, 8);
-  if (!email || !name || !password) {
+  if (!email || !username || !password) {
     res.status(400).json({ message: "Please provide all fields" });
     return;
   }
-  const userExists = await prisma.user.findUnique({
+  if (registerSchema.safeParse(req.body).success === false) {
+    res.status(400).json({ message: registerSchema.safeParse(req.body).error });
+    return;
+  }
+  const userExists = await prisma.user.findFirst({
     where: {
-      email,
+      OR: [{ email: email }, { username: username }],
     },
   });
+
   if (userExists) {
     res.status(409).json({ message: "User already exists" });
     return;
@@ -115,7 +194,7 @@ const registerUser = asyncHandler(async (req: Request, res: Response) => {
       data: {
         email,
         password: hashedPassword,
-        name,
+        username,
         collegeEmailVerified: true,
       },
     });
@@ -127,11 +206,9 @@ const registerUser = asyncHandler(async (req: Request, res: Response) => {
       },
     });
     const exp = Date.now() + 1000 * 60 * 5;
-    // @ts-ignore
     const token = jwt.sign({ sub: user.user_id, exp }, process.env.SECRET);
-    const url = `http://localhost:3000/api/user/verify/${token}`;
+    const url = `${process.env.BACKEND_URL}/api/user/verify/${token}`;
     const htmlContent = `<a href="${url}">Verify using this link</a>`;
-    // @ts-ignore
     sendMail(htmlContent, email);
     res.status(201).json({ message: "User created" });
   } else {
@@ -139,16 +216,14 @@ const registerUser = asyncHandler(async (req: Request, res: Response) => {
       data: {
         email,
         password: hashedPassword,
-        name,
+        username,
         collegeEmailVerified: false,
       },
     });
     const exp = Date.now() + 1000 * 60 * 5;
-    // @ts-ignore
     const token = jwt.sign({ sub: user.user_id, exp }, process.env.SECRET);
-    const url = `https://api-statuscode1.wedevelopers.online/api/user/verify/${token}`;
+    const url = `${process.env.BACKEND_URL}/api/user/verify/${token}`;
     const htmlContent = `<a href="${url}">Verify using this link</a>`;
-    // @ts-ignore
     sendMail(htmlContent, email);
     res.status(201).json({ message: "User created" });
   }
@@ -193,6 +268,9 @@ const verifyUser = asyncHandler(async (req: Request, res: Response) => {
 
 const loginUser = asyncHandler(async (req: Request, res: Response) => {
   const { email, password } = req.body;
+  if (!process.env.SECRET) {
+    throw new Error("Secret not found");
+  }
   if (!email || !password) {
     res.status(400).json({ message: "Please provide all fields" });
     return;
@@ -206,8 +284,12 @@ const loginUser = asyncHandler(async (req: Request, res: Response) => {
     res.status(404).json({ message: "User not found" });
     return;
   }
-  if(!user.password){
+  if (!user.password) {
     res.status(401).json({ message: "Logged in with Google Or Github" });
+    return;
+  }
+  if (!user.emailVerified) {
+    res.status(401).json({ message: "Email not verified" });
     return;
   }
   const match = await bcrypt.compare(password, user.password);
@@ -216,7 +298,6 @@ const loginUser = asyncHandler(async (req: Request, res: Response) => {
     return;
   }
   const exp = Date.now() + 1000 * 60 * 60 * 24 * 30;
-  // @ts-ignore
   const token = jwt.sign({ sub: user.user_id, exp }, process.env.SECRET);
   res.cookie("Authorization", token, {
     httpOnly: true,
@@ -236,7 +317,7 @@ const getCurrentUserDetails = asyncHandler(
       select: {
         user_id: true,
         email: true,
-        name: true,
+        username: true,
         userCourses: {
           select: {
             Course: {
@@ -271,7 +352,7 @@ const getUserDetailsById = asyncHandler(async (req: Request, res: Response) => {
     },
     select: {
       email: true,
-      name: true,
+      username: true,
       userCourses: {
         select: {
           Course: {
@@ -347,6 +428,108 @@ const addCourseToUser = asyncHandler(async (req: Request, res: Response) => {
   res.status(201).json({ message: "Course added to user" });
 });
 
+// @ts-ignore
+const addUsername = asyncHandler(async (req: Request, res: Response) => {
+  const { username, id } = req.body;
+  if (!username) {
+    return res.status(400).json({ message: "Please provide all fields" });
+  }
+  const response = await prisma.user.findFirst({
+    where: {
+      OR: [{ username: username }],
+    },
+  });
+
+  if (response) {
+    return res.status(409).json({ message: "Username already exists" });
+  }
+  await prisma.user.update({
+    where: {
+      user_id: id,
+    },
+    data: {
+      username,
+    },
+  });
+  res.status(201).json({ message: "Username updated" });
+});
+
+// @ts-ignore
+const addDetailsToUser = asyncHandler(async (req: Request, res: Response) => {
+  const { username, collegeName, courseName, isOnline, location, id } =
+    req.body;
+  if (!collegeName || !courseName || !location || isOnline === undefined) {
+    return res.status(400).json({ message: "Please provide all fields" });
+  }
+  const user = await prisma.user.findFirst({
+    where: {
+      OR: [{ username: username }],
+    },
+  });
+
+  if (user) {
+    return res.status(409).json({ message: "Username already exists" });
+  }
+  await prisma.user.update({
+    where: {
+      user_id: id,
+    },
+    data: {
+      username,
+    },
+  });
+  let college = await prisma.college.findFirst({
+    where: {
+      name: collegeName,
+    },
+  });
+  if (!college) {
+    college = await prisma.college.create({
+      data: {
+        name: collegeName,
+        location,
+      },
+    });
+  }
+  const college_id = college.college_id;
+  let course = await prisma.course.findFirst({
+    where: {
+      name: courseName,
+    },
+  });
+  let course_id;
+  if (course) {
+    course_id = course.course_id;
+  } else {
+    course = await prisma.course.create({
+      data: {
+        name: courseName,
+        college_id,
+        isOnline,
+      },
+    });
+    course_id = course.course_id;
+  }
+  await prisma.userCourse.create({
+    data: {
+      user_id: id,
+      course_id,
+      college_id,
+    },
+  });
+  res.status(201).json({ message: "Course added to user" });
+});
+
+const getAllUser = asyncHandler(async (req: Request, res: Response) => {
+  const users = await prisma.user.findMany({
+    select: {
+      user_id: true,
+      username: true,
+    },
+  });
+  res.status(200).json(users);
+});
+
 export {
   registerUser,
   loginUser,
@@ -355,4 +538,8 @@ export {
   getUserDetailsById,
   addCourseToUser,
   googleSignInOrSignUp,
+  githubSignInOrSignUp,
+  addDetailsToUser,
+  addUsername,
+  getAllUser,
 };
