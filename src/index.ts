@@ -12,6 +12,7 @@ import reviewRoutes from "./routes/reviewRoutes";
 import ratingRoutes from "./routes/ratingRoute";
 import postsRoutes from "./routes/postsRoutes";
 import roomRouter from "./routes/roomRoutes";
+import Otprouter  from "./routes/otpRoute";
 
 // import { getCommunities } from "./controllers/postController";
 
@@ -20,8 +21,9 @@ app.use(express.json());
 const corsOptions = {
   origin: [
     "http://localhost:3001",
-    "https://app-statuscode1.wedevelopers.online",
     "http://localhost:5173",
+    "https://www.campusify.site/",
+    "https://app.campusify.site/",
   ],
   credentials: true,
 };
@@ -37,12 +39,12 @@ app.use("/api/review", reviewRoutes);
 app.use("/api/rating", ratingRoutes);
 app.use("/api/chat", chatRoutes); // Use the chat routes
 app.use("/api/post", postsRoutes);
-app.use('/api/room', roomRouter);
+app.use("/api/room", roomRouter);
+app.use("/api/otp", Otprouter);
 // app.get("/api/post/communities", getCommunities);
-app.get('/api/logout', (req: Request, res: Response) => {
-  res.clearCookie('Authorization').json({ message: 'Logged out successfully' });
+app.get("/api/logout", (req: Request, res: Response) => {
+  res.clearCookie("Authorization").json({ message: "Logged out successfully" });
 });
-
 
 app.get("/", (req: Request, res: Response) => {
   res.send("Backend is running");

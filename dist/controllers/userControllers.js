@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAllUser = exports.addUsername = exports.addDetailsToUser = exports.githubSignInOrSignUp = exports.googleSignInOrSignUp = exports.addCourseToUser = exports.getUserDetailsById = exports.getCurrentUserDetails = exports.verifyUser = exports.loginUser = exports.registerUser = void 0;
+exports.updateDetails = exports.logOut = exports.getAllUser = exports.addUsername = exports.addDetailsToUser = exports.githubSignInOrSignUp = exports.googleSignInOrSignUp = exports.addCourseToUser = exports.getUserDetailsById = exports.getCurrentUserDetails = exports.verifyUser = exports.loginUser = exports.registerUser = void 0;
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
@@ -20,6 +20,7 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const sendMail_1 = __importDefault(require("../mail/sendMail"));
 const academic_email_verifier_1 = require("academic-email-verifier");
 const checkAcademic_1 = __importDefault(require("../mail/checkAcademic"));
+const registerSchema_1 = require("../validation/registerSchema");
 const googleSignInOrSignUp = (0, express_async_handler_1.default)(
 //@ts-ignore
 (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -129,6 +130,10 @@ const registerUser = (0, express_async_handler_1.default)((req, res) => __awaite
     const hashedPassword = yield bcrypt_1.default.hash(password, 8);
     if (!email || !username || !password) {
         res.status(400).json({ message: "Please provide all fields" });
+        return;
+    }
+    if (registerSchema_1.registerSchema.safeParse(req.body).success === false) {
+        res.status(400).json({ message: registerSchema_1.registerSchema.safeParse(req.body).error });
         return;
     }
     const userExists = yield prisma_1.default.user.findFirst({
@@ -433,6 +438,19 @@ const addUsername = (0, express_async_handler_1.default)((req, res) => __awaiter
             OR: [{ username: username }],
         },
     });
+    const user1 = yield prisma_1.default.user.findUnique({
+        where: {
+            user_id: id,
+        },
+    });
+    if (!user1) {
+        return res.status(404).json({ message: "User not found" });
+    }
+    if (user1.username) {
+        return res
+            .status(409)
+            .json({ message: "You are not authorized to change the username" });
+    }
     if (response) {
         return res.status(409).json({ message: "Username already exists" });
     }
@@ -450,7 +468,11 @@ exports.addUsername = addUsername;
 // @ts-ignore
 const addDetailsToUser = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { username, collegeName, courseName, isOnline, location, id } = req.body;
-    if (!collegeName || !courseName || !location || isOnline === undefined) {
+    if (!collegeName ||
+        !courseName ||
+        !location ||
+        isOnline === undefined ||
+        !username) {
         return res.status(400).json({ message: "Please provide all fields" });
     }
     const user = yield prisma_1.default.user.findFirst({
@@ -458,6 +480,19 @@ const addDetailsToUser = (0, express_async_handler_1.default)((req, res) => __aw
             OR: [{ username: username }],
         },
     });
+    const user1 = yield prisma_1.default.user.findUnique({
+        where: {
+            user_id: id,
+        },
+    });
+    if (!user1) {
+        return res.status(404).json({ message: "User not found" });
+    }
+    if (user1.username) {
+        return res
+            .status(409)
+            .json({ message: "You are not authorized to change the username" });
+    }
     if (user) {
         return res.status(409).json({ message: "Username already exists" });
     }
@@ -522,3 +557,48 @@ const getAllUser = (0, express_async_handler_1.default)((req, res) => __awaiter(
     res.status(200).json(users);
 }));
 exports.getAllUser = getAllUser;
+const logOut = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    res.clearCookie("Authorization");
+    res.status(200).json({ message: "Logged out" });
+}));
+exports.logOut = logOut;
+// @ts-ignore
+const updateDetails = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    // @ts-ignore
+    const userId = req.user.user_id;
+    let { username, pic } = req.body;
+    if (!username) {
+        // @ts-ignore
+        username = req.user.username;
+    }
+    if (!pic) {
+        // @ts-ignore
+        pic = req.user.pic;
+    }
+    // @ts-ignore
+    if (username !== req.user.username) {
+        const response = yield prisma_1.default.user.findFirst({
+            where: {
+                OR: [{ username: username }],
+            },
+        });
+        if (response) {
+            return res.status(409).json({ message: "Username already exists" });
+        }
+    }
+    if (!pic) {
+        // @ts-ignore
+        pic = req.user.pic;
+    }
+    yield prisma_1.default.user.update({
+        where: {
+            user_id: userId,
+        },
+        data: {
+            username,
+            pic,
+        },
+    });
+    return res.status(200).json({ message: "Details updated" });
+}));
+exports.updateDetails = updateDetails;

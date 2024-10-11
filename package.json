@@ -26,6 +26,7 @@
     "@types/cors": "^2.8.17",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/nodemailer": "^6.4.15",
+    "@types/otp-generator": "^4.0.2",
     "@types/ws": "^8.5.12",
     "academic-email-verifier": "^3.1.0",
     "bcrypt": "^5.1.1",
@@ -39,15 +40,14 @@
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^6.9.14",
     "nodemon": "^3.1.4",
+    "otp-generator": "^4.0.1",
     "prettier": "^3.3.3",
-    "tsc": "^2.0.4",
     "ws": "^8.18.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "prisma": "^5.20.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.6.3"
+    "ts-node": "^10.9.2"
   }
 }
