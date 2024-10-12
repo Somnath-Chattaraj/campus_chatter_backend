@@ -20,6 +20,12 @@ const searchPosts = asyncHandler(async (req: Request, res: Response) => {
           name: true,
         },
       },
+      User: {
+        select: {
+          username: true,
+          pic: true,
+        },
+      },
     },
   });
 
@@ -209,6 +215,7 @@ const fetchSinglePost = asyncHandler(async (req: Request, res: Response) => {
       User: {
         select: {
           username: true,
+          pic: true,
         },
       },
       Comments: {
@@ -219,6 +226,7 @@ const fetchSinglePost = asyncHandler(async (req: Request, res: Response) => {
           User: {
             select: {
               username: true,
+              pic: true,
             },
           },
         },
