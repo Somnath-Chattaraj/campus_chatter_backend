@@ -1,37 +1,39 @@
-import nodemailer from 'nodemailer';
+import nodemailer from "nodemailer";
 
-const sendMail = (htmlContent: any, receiverEmail: string) => {
+const sendMail = (
+  htmlContent: any,
+  receiverEmail: string,
+  subject: any = "Verification Email"
+) => {
   const port = process.env.SMTP_PORT;
   const host = process.env.SMTP_HOST;
   const senderEmail = process.env.SMTP_EMAIL;
   const password = process.env.SMTP_PASSWORD;
   let transporter = nodemailer.createTransport({
     // @ts-ignore
-    host: 'smtp.gmail.com',
-    port: port, 
-    secure: true, 
+    host: "smtp.gmail.com",
+    port: port,
+    secure: true,
     auth: {
-      user: host, 
+      user: host,
       pass: password,
     },
   });
 
   let mailOptions = {
-    from: `"Campus-Chatter Admin" <${senderEmail}>`, 
-    to: receiverEmail,            
-    subject: 'OTP Verification',               
-    text: htmlContent, 
-    html: htmlContent, 
+    from: `"Campus-Chatter Admin" <${senderEmail}>`,
+    to: receiverEmail,
+    subject: subject,
+    text: htmlContent,
+    html: htmlContent,
   };
 
   transporter.sendMail(mailOptions, (error, info) => {
     if (error) {
-      return console.log('Error while sending email:', error);
+      return console.log("Error while sending email:", error);
     }
-    console.log('Email sent successfully:', info.response);
+    // console.log('Email sent successfully:', info.response);
   });
+};
 
-
-}
-
-export default sendMail
+export default sendMail;
