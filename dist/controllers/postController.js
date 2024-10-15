@@ -261,7 +261,18 @@ const deletePost = (0, express_async_handler_1.default)((req, res) => __awaiter(
     if (post.User.user_id !== user_id) {
         return res.status(401).json({ message: "Unauthorized" });
     }
-    return res.status(200).json({ message: "Post deleted" });
+    yield prisma_1.default.$transaction((prisma) => __awaiter(void 0, void 0, void 0, function* () {
+        yield prisma.comment.deleteMany({
+            where: { post_id: postId },
+        });
+        yield prisma.like.deleteMany({
+            where: { post_id: postId },
+        });
+        yield prisma.post.delete({
+            where: { post_id: postId },
+        });
+    }));
+    return res.status(200).json({ message: "Post and comments deleted" });
 }));
 exports.deletePost = deletePost;
 // @ts-ignore
@@ -354,6 +365,9 @@ const deleteComment = (0, express_async_handler_1.default)((req, res) => __await
     if (comment.User.user_id !== user_id) {
         return res.status(401).json({ message: "Unauthorized" });
     }
+    yield prisma_1.default.comment.delete({
+        where: { comment_id: commentId },
+    });
     return res.status(200).json({ message: "Comment deleted" });
 }));
 exports.deleteComment = deleteComment;
