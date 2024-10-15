@@ -466,4 +466,6 @@ export {
   unlikePost,
   searchPosts,
   getAllCommunities,
+  deletePost,
+  deleteComment,
 };
