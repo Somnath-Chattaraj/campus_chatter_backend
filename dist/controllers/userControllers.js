@@ -319,6 +319,7 @@ const getCurrentUserDetails = (0, express_async_handler_1.default)((req, res) =>
             email: true,
             username: true,
             pic: true,
+            collegeEmailVerified: true,
             userCourses: {
                 select: {
                     Course: {
