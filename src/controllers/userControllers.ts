@@ -348,6 +348,7 @@ const getCurrentUserDetails = asyncHandler(
         username: true,
         pic: true,
         collegeEmailVerified: true,
+        emailVerified: true,
         userCourses: {
           select: {
             Course: {
