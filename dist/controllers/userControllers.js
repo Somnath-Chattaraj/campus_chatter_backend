@@ -346,6 +346,7 @@ const getCurrentUserDetails = (0, express_async_handler_1.default)((req, res) =>
             username: true,
             pic: true,
             collegeEmailVerified: true,
+            emailVerified: true,
             userCourses: {
                 select: {
                     Course: {
