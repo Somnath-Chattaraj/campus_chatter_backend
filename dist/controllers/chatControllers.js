@@ -29,7 +29,6 @@ const getChatHistory = (req, res) => __awaiter(void 0, void 0, void 0, function*
             message: message.content,
             at: message.timestamp,
         }));
-        // Send the formatted messages as a JSON response
         res.json(messageFormat);
     }
     catch (error) {
