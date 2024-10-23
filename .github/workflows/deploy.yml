@@ -1,0 +1,36 @@
+name: Deploy to EC2 and Reload PM2
+
+on:
+  push:
+    branches:
+      - master # Specify your deployment branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Add SSH Key
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.SSH_KEY }}
+
+      - name: Deploy to EC2 and Reload PM2
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} << 'EOF'
+            cd /home/ubuntu/Campus-Chatter-backend  # Change this to your project path on EC2
+
+            # Pull the latest changes from master
+            git pull origin master
+
+            # Install dependencies and generate Prisma client
+            npm install
+            npx prisma generate
+
+            # Reload PM2 processes
+            pm2 reload index
+            pm2 reload server
+          EOF

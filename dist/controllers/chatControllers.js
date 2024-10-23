@@ -34,7 +34,7 @@ const getChatHistory = (req, res) => __awaiter(void 0, void 0, void 0, function*
             message: message.content,
             at: message.timestamp,
         }));
-        // await setCachedData(cacheKey, JSON.stringify(messageFormat), 3600);
+
         res.json(messageFormat);
     }
     catch (error) {
