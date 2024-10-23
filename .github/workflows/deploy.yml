@@ -26,6 +26,10 @@ jobs:
             # Pull the latest changes from master
             git pull origin master
 
+            # Install dependencies and generate Prisma client
+            npm install
+            npx prisma generate
+
             # Reload PM2 processes
             pm2 reload index
             pm2 reload server
