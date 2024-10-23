@@ -57,7 +57,7 @@ const searchPosts = (0, express_async_handler_1.default)((req, res) => __awaiter
         threshold: 0.6,
     });
     const searchResults = fuse.search(query).map((result) => result.item);
-    yield (0, redis_1.setCachedData)(cacheKey, JSON.stringify(searchResults), 3600);
+    yield (0, redis_1.setCachedData)(cacheKey, JSON.stringify(searchResults), 300);
     return res.status(200).json({ posts: searchResults });
 }));
 exports.searchPosts = searchPosts;
