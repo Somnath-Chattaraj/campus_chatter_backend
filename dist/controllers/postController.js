@@ -18,11 +18,17 @@ const prisma_1 = __importDefault(require("../lib/prisma"));
 const fuse_js_1 = __importDefault(require("fuse.js"));
 const sendMail_1 = __importDefault(require("../mail/sendMail"));
 const html_to_text_1 = require("html-to-text");
+const redis_1 = require("../lib/redis");
 // @ts-ignore
 const searchPosts = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { query } = req.body;
     if (!query) {
         return res.status(400).json({ message: "Search query is required" });
+    }
+    const cacheKey = `search:${query}`;
+    const cachedResults = yield (0, redis_1.getCachedData)(cacheKey);
+    if (cachedResults) {
+        return res.status(200).json({ posts: JSON.parse(cachedResults) });
     }
     const posts = yield prisma_1.default.post.findMany({
         select: {
@@ -51,6 +57,7 @@ const searchPosts = (0, express_async_handler_1.default)((req, res) => __awaiter
         threshold: 0.6,
     });
     const searchResults = fuse.search(query).map((result) => result.item);
+    yield (0, redis_1.setCachedData)(cacheKey, JSON.stringify(searchResults), 3600);
     return res.status(200).json({ posts: searchResults });
 }));
 exports.searchPosts = searchPosts;
