@@ -17,6 +17,7 @@ const express_async_handler_1 = __importDefault(require("express-async-handler")
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const fuse_js_1 = __importDefault(require("fuse.js"));
 const sendMail_1 = __importDefault(require("../mail/sendMail"));
+const html_to_text_1 = require("html-to-text");
 // @ts-ignore
 const searchPosts = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { query } = req.body;
@@ -41,7 +42,11 @@ const searchPosts = (0, express_async_handler_1.default)((req, res) => __awaiter
             },
         },
     });
-    const fuse = new fuse_js_1.default(posts, {
+    const plainTextPosts = posts.map((post) => (Object.assign(Object.assign({}, post), { content: (0, html_to_text_1.htmlToText)(post.content, {
+            wordwrap: false,
+            preserveNewlines: true,
+        }) })));
+    const fuse = new fuse_js_1.default(plainTextPosts, {
         keys: ["title", "content", "College.name"],
         threshold: 0.6,
     });
