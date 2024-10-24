@@ -124,6 +124,7 @@ const createPost = (0, express_async_handler_1.default)((req, res, next) => __aw
             college_id: collegeId,
         },
     });
+    yield (0, redis_1.deleteCachedPosts)(collegeId);
     return res.status(201).json({ post });
 }));
 exports.createPost = createPost;
@@ -269,6 +270,11 @@ const deletePost = (0, express_async_handler_1.default)((req, res) => __awaiter(
                     user_id: true,
                 },
             },
+            College: {
+                select: {
+                    college_id: true,
+                },
+            },
         },
         where: { post_id: postId },
     });
@@ -292,6 +298,7 @@ const deletePost = (0, express_async_handler_1.default)((req, res) => __awaiter(
             where: { post_id: postId },
         });
     }));
+    yield (0, redis_1.deleteCachedPosts)(post.College.college_id);
     return res.status(200).json({ message: "Post and comments deleted" });
 }));
 exports.deletePost = deletePost;
