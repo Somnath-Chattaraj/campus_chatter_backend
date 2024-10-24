@@ -133,6 +133,11 @@ const fetchPosts = (0, express_async_handler_1.default)((req, res) => __awaiter(
     const pageNumber = page;
     const postsPerPage = 4;
     const offset = (pageNumber - 1) * postsPerPage;
+    const cacheKey = `posts:${collegeId || "all"}:page:${pageNumber}`;
+    const cachedResults = yield (0, redis_1.getCachedData)(cacheKey);
+    if (cachedResults) {
+        return res.status(200).json(JSON.parse(cachedResults));
+    }
     const posts = yield prisma_1.default.post.findMany({
         where: collegeId ? { college_id: collegeId } : {},
         orderBy: {
@@ -165,6 +170,8 @@ const fetchPosts = (0, express_async_handler_1.default)((req, res) => __awaiter(
     });
     const totalPosts = yield prisma_1.default.post.count();
     const isOver = offset + postsPerPage >= totalPosts;
+    const result = { posts, isOver };
+    yield (0, redis_1.setCachedData)(cacheKey, JSON.stringify(result), 600);
     return res.status(200).json({ posts, isOver });
 }));
 exports.fetchPosts = fetchPosts;
