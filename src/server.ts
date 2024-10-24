@@ -1,6 +1,7 @@
-import WebSocket, { Server } from 'ws';
-import { PrismaClient } from '@prisma/client';
-import sendMail from './mail/sendMail';
+import WebSocket, { Server } from "ws";
+import { PrismaClient } from "@prisma/client";
+import sendMail from "./mail/sendMail";
+import { any } from "zod";
 
 const prisma = new PrismaClient();
 const wss = new Server({ port: 8080 });
@@ -8,111 +9,163 @@ let clientCount = 0;
 
 const clientRoomMap = new Map<WebSocket, Set<number>>(); // WebSocket -> Set of room IDs
 
-wss.on('connection', (ws) => {
+wss.on("connection", (ws) => {
   const clientId = ++clientCount; // Increment and get the client ID
   console.log(`Client${clientId} connected`);
   const user = [];
 
   clientRoomMap.set(ws, new Set());
 
-  ws.on('message', async (message) => {
+  ws.on("message", async (message) => {
     const { type, data } = JSON.parse(message.toString()); // data will contain roomId, userId, targetUserId, and message
     // type will contain 'createRoom', 'joinRoom', 'sendMessage'
     const roomId = data.roomId;
 
-    
     switch (type) {
-      case 'createRoom':
+      case "createRoom":
         try {
           // Create a new chat room
           const newRoom = await prisma.chatRoom.create({
             data: {
               users: {
-                connect: [{ user_id: data.userId }, { user_id: data.targetUserId }]
-              }
-            }
+                connect: [
+                  { user_id: data.userId },
+                  { user_id: data.targetUserId },
+                ],
+              },
+            },
           });
 
           // Update client-room mapping for new room
           // @ts-ignore: clientRoomMap is a Map<WebSocket, Set<number>>
           clientRoomMap.get(ws)?.add(newRoom.id);
-          ws.send(JSON.stringify({ type: 'roomCreated', data: { roomId: newRoom.id } }));
+          ws.send(
+            JSON.stringify({
+              type: "roomCreated",
+              data: { roomId: newRoom.id },
+            })
+          );
         } catch (error) {
-          ws.send(JSON.stringify({ type: 'error', data: { message: 'Failed to create or join chat room' } }));
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              data: { message: "Failed to create or join chat room" },
+            })
+          );
         }
         break;
 
-      case 'joinRoom':
+      case "joinRoom":
         try {
           await prisma.chatRoom.update({
             where: { id: data.roomId },
             data: {
               users: {
-                connect: [{ user_id: data.userId }]
-              }
-            }
+                connect: [{ user_id: data.userId }],
+              },
+            },
           });
 
           // Update client-room mapping for the joined room
           const rooms = clientRoomMap.get(ws);
           rooms?.add(data.roomId);
-          ws.send(JSON.stringify({ type: 'roomJoined', data: { roomId: data.roomId } }));
+          ws.send(
+            JSON.stringify({
+              type: "roomJoined",
+              data: { roomId: data.roomId },
+            })
+          );
 
           // Notify other clients in the room about the new join
-          wss.clients.forEach(client => {
+          wss.clients.forEach((client) => {
             if (client.readyState === WebSocket.OPEN && client !== ws) {
               const clientRooms = clientRoomMap.get(client);
               if (clientRooms?.has(data.roomId)) {
-                client.send(JSON.stringify({ type: 'newClientJoined', data: { roomId: data.roomId, message: `Client${clientId} joined` } }));
+                client.send(
+                  JSON.stringify({
+                    type: "newClientJoined",
+                    data: {
+                      roomId: data.roomId,
+                      message: `Client${clientId} joined`,
+                    },
+                  })
+                );
               }
             }
           });
         } catch (error) {
-          ws.send(JSON.stringify({ type: 'error', data: { message: 'Failed to join chat room' } }));
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              data: { message: "Failed to join chat room" },
+            })
+          );
         }
         break;
 
-        case 'sendMessage':
-  try {
-    const chatRoom = await prisma.chatRoom.findUnique({
-      where: { id: roomId },
-      include: {
-        users: {
-          select: { user_id: true, username: true, email: true } // Ensure to fetch email
-        }
-      }
-    });
+      case "sendMessage":
+        try {
+          const chatRoom = await prisma.chatRoom.findUnique({
+            where: { id: roomId },
+            include: {
+              users: {
+                select: { user_id: true, username: true, email: true }, // Ensure to fetch email
+              },
+            },
+          });
 
-    if (!chatRoom) {
-      ws.send(JSON.stringify({ type: 'error', data: { message: 'Chat room not found' } }));
-      return;
-    }
+          if (!chatRoom) {
+            ws.send(
+              JSON.stringify({
+                type: "error",
+                data: { message: "Chat room not found" },
+              })
+            );
+            return;
+          }
 
-    const newMessage = await prisma.message.create({
-      data: {
-        content: data.message,
-        sender: { connect: { user_id: data.userId } },
-        chatRoom: { connect: { id: data.roomId } },
-      }
-    });
+          const newMessage = await prisma.message.create({
+            data: {
+              content: data.message,
+              sender: { connect: { user_id: data.userId } },
+              chatRoom: { connect: { id: data.roomId } },
+            },
+          });
 
-    // Broadcast the message to all clients in the room
-    wss.clients.forEach(client => {
-      const rooms = clientRoomMap.get(client);
-      if (client.readyState === WebSocket.OPEN && rooms?.has(data.roomId)) {
-        client.send(JSON.stringify({ type: 'newMessage', data: { roomId: data.roomId, message: newMessage } }));
-      }
-    });
+          // Broadcast the message to all clients in the room
+          wss.clients.forEach((client) => {
+            const rooms = clientRoomMap.get(client);
+            if (
+              client.readyState === WebSocket.OPEN &&
+              rooms?.has(data.roomId)
+            ) {
+              client.send(
+                JSON.stringify({
+                  type: "newMessage",
+                  data: { roomId: data.roomId, message: newMessage },
+                })
+              );
+            }
+          });
+          let username = "" as string;
+          chatRoom.users.forEach((user: any) => {
+            if (user.user_id === data.userId) {
+              username = user.username as string;
+            }
+          });
 
-    // Send email to disconnected users
-    chatRoom.users.forEach(user => {
-      const isUserConnected = [...wss.clients].some(
-        client => clientRoomMap.get(client)?.has(data.roomId) && client.readyState === WebSocket.OPEN && user.user_id === data.userId
-      );
+          // Send email to disconnected users
+          chatRoom.users.forEach((user: any) => {
+            const isUserConnected = [...wss.clients].some(
+              (client) =>
+                clientRoomMap.get(client)?.has(data.roomId) &&
+                client.readyState === WebSocket.OPEN &&
+                user.user_id === data.userId
+            );
 
-      // Send email only to disconnected users and exclude the sender
-      if (!isUserConnected && user.user_id !== data.userId) {
-        const htmlContent = `
+            // Send email only to disconnected users and exclude the sender
+            if (!isUserConnected && user.user_id !== data.userId) {
+              const htmlContent = `
           <html>
             <head>
               <style>
@@ -152,8 +205,8 @@ wss.on('connection', (ws) => {
             </head>
             <body>
               <div class="container">
-                <h1>New Message in Chat Room ${data.roomId}</h1>
-                <p>You've received a new message in chat room <strong>${data.roomId}</strong>.</p>
+                <h1>New Message from ${username}</h1>
+                <p>You've received a new message from <strong> ${username} </strong> in chat room ${data.roomId}.</p>
                 <p>Click the link below and enter the room id to view the message:</p>
                 <p><a href="https://www.campusify.site/room/joinroom">Join Room</a></p>
                 <p class="footer">Thank you for using our service!</p>
@@ -162,34 +215,48 @@ wss.on('connection', (ws) => {
           </html>
         `;
 
-        console.log('Sending email to', user.email);
-        sendMail(htmlContent, user.email, "Message notification");
-      }
-    });
-  } catch (error) {
-    ws.send(JSON.stringify({ type: 'error', data: { message: 'Failed to send message' } }));
-  }
-  break;
+              console.log("Sending email to", user.email);
+              sendMail(htmlContent, user.email, "Message notification");
+            }
+          });
+        } catch (error) {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              data: { message: "Failed to send message" },
+            })
+          );
+        }
+        break;
       default:
-        ws.send(JSON.stringify({ type: 'error', data: { message: 'Invalid message type' } }));
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            data: { message: "Invalid message type" },
+          })
+        );
         break;
     }
-    
   });
 
-  ws.on('close', () => {
+  ws.on("close", () => {
     console.log(`Client${clientId} disconnected`);
 
     // Retrieve the rooms the client was part of
     const rooms = clientRoomMap.get(ws);
     if (rooms) {
-      rooms.forEach(roomId => {
+      rooms.forEach((roomId) => {
         // Broadcast the disconnect message to all clients in the room
-        wss.clients.forEach(client => {
+        wss.clients.forEach((client) => {
           if (client.readyState === WebSocket.OPEN && client !== ws) {
             const clientRooms = clientRoomMap.get(client);
             if (clientRooms?.has(roomId)) {
-              client.send(JSON.stringify({ type: 'clientDisconnected', data: { roomId, message: `Client${clientId} disconnected` } }));
+              client.send(
+                JSON.stringify({
+                  type: "clientDisconnected",
+                  data: { roomId, message: `Client${clientId} disconnected` },
+                })
+              );
             }
           }
         });

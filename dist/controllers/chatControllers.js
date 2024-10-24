@@ -15,30 +15,24 @@ const prisma = new client_1.PrismaClient();
 const getChatHistory = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { roomId } = req.params;
     try {
-        //   const cacheKey = `search:${roomId}`;
-        // const cachedResults = await getCachedData(cacheKey);
-        // if (cachedResults) {
-        //   return res.status(200).json(JSON.parse(cachedResults));
-        // }
         const messages = yield prisma.message.findMany({
             where: { chatRoomId: roomId },
             include: {
                 sender: {
-                    select: { user_id: true, username: true }
-                }
+                    select: { user_id: true, username: true },
+                },
             },
-            orderBy: { timestamp: 'asc' }
+            orderBy: { timestamp: "asc" },
         });
         const messageFormat = messages.map((message) => ({
             senderId: message.sender.user_id,
             message: message.content,
             at: message.timestamp,
         }));
-
         res.json(messageFormat);
     }
     catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve chat history' });
+        res.status(500).json({ error: "Failed to retrieve chat history" });
     }
 });
 exports.getChatHistory = getChatHistory;
@@ -49,23 +43,23 @@ const listChatRooms = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         const chatRooms = yield prisma.chatRoom.findMany({
             where: {
                 users: {
-                    some: { user_id: userId }
-                }
+                    some: { user_id: userId },
+                },
             },
             select: {
                 id: true, // roomId
                 users: {
                     select: {
                         user_id: true,
-                        username: true
-                    }
-                }
-            }
+                        username: true,
+                    },
+                },
+            },
         });
         res.json(chatRooms);
     }
     catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve chat rooms' });
+        res.status(500).json({ error: "Failed to retrieve chat rooms" });
     }
 });
 exports.listChatRooms = listChatRooms;
@@ -76,19 +70,19 @@ const getChatRoomDetails = (req, res) => __awaiter(void 0, void 0, void 0, funct
             where: { id: roomId },
             include: {
                 users: {
-                    select: { user_id: true, username: true }
-                }
-            }
+                    select: { user_id: true, username: true },
+                },
+            },
         });
         if (chatRoom) {
             res.json(chatRoom);
         }
         else {
-            res.status(404).json({ error: 'Chat room not found' });
+            res.status(404).json({ error: "Chat room not found" });
         }
     }
     catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve chat room details' });
+        res.status(500).json({ error: "Failed to retrieve chat room details" });
     }
 });
 exports.getChatRoomDetails = getChatRoomDetails;

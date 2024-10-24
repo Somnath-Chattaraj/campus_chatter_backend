@@ -1,38 +1,33 @@
-import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
-
+import { Request, Response } from "express";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
-
 
 export const getChatHistory = async (req: Request, res: Response) => {
   const { roomId } = req.params;
 
   try {
-    
     const messages = await prisma.message.findMany({
       where: { chatRoomId: roomId },
       include: {
         sender: {
-          select: { user_id: true, username: true }
-        }
+          select: { user_id: true, username: true },
+        },
       },
-      orderBy: { timestamp: 'asc' }
+      orderBy: { timestamp: "asc" },
     });
-    const messageFormat = messages.map((message : any) => ({
+    const messageFormat = messages.map((message: any) => ({
       senderId: message.sender.user_id,
       message: message.content,
       at: message.timestamp,
     }));
     res.json(messageFormat);
-    
   } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve chat history' });
+    res.status(500).json({ error: "Failed to retrieve chat history" });
   }
 };
 
 export const listChatRooms = async (req: Request, res: Response) => {
-
   // @ts-ignore
   const userId = req.body;
 
@@ -40,23 +35,23 @@ export const listChatRooms = async (req: Request, res: Response) => {
     const chatRooms = await prisma.chatRoom.findMany({
       where: {
         users: {
-          some: { user_id: userId }
-        }
+          some: { user_id: userId },
+        },
       },
       select: {
         id: true, // roomId
         users: {
           select: {
             user_id: true,
-            username: true
-          }
-        }
-      }
+            username: true,
+          },
+        },
+      },
     });
 
     res.json(chatRooms);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve chat rooms' });
+    res.status(500).json({ error: "Failed to retrieve chat rooms" });
   }
 };
 
@@ -68,17 +63,17 @@ export const getChatRoomDetails = async (req: Request, res: Response) => {
       where: { id: roomId },
       include: {
         users: {
-          select: { user_id: true, username: true }
-        }
-      }
+          select: { user_id: true, username: true },
+        },
+      },
     });
 
     if (chatRoom) {
       res.json(chatRoom);
     } else {
-      res.status(404).json({ error: 'Chat room not found' });
+      res.status(404).json({ error: "Chat room not found" });
     }
   } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve chat room details' });
+    res.status(500).json({ error: "Failed to retrieve chat room details" });
   }
 };
