@@ -184,6 +184,11 @@ const likePost = (0, express_async_handler_1.default)((req, res) => __awaiter(vo
         where: { post_id: postId },
         select: {
             likes: true,
+            College: {
+                select: {
+                    college_id: true,
+                },
+            },
         },
     });
     // @ts-ignore
@@ -213,6 +218,7 @@ const likePost = (0, express_async_handler_1.default)((req, res) => __awaiter(vo
             user_id,
         },
     });
+    yield (0, redis_1.deleteCachedPosts)(post.College.college_id);
     return res.status(200).json({ updatedPost });
 }));
 exports.likePost = likePost;
@@ -333,6 +339,11 @@ const createComment = (0, express_async_handler_1.default)((req, res) => __await
                     user_id: true,
                 },
             },
+            College: {
+                select: {
+                    college_id: true,
+                },
+            },
         },
     });
     if (!post) {
@@ -368,6 +379,7 @@ const createComment = (0, express_async_handler_1.default)((req, res) => __await
   </div>
 `;
     (0, sendMail_1.default)(htmlContent, email, "New Comment on Your Post");
+    yield (0, redis_1.deleteCachedPosts)(post.College.college_id);
     return res.status(201).json({ comment });
 }));
 exports.createComment = createComment;
@@ -381,6 +393,7 @@ const deleteComment = (0, express_async_handler_1.default)((req, res) => __await
                     user_id: true,
                 },
             },
+            post_id: true,
         },
         where: { comment_id: commentId },
     });
@@ -395,6 +408,20 @@ const deleteComment = (0, express_async_handler_1.default)((req, res) => __await
     yield prisma_1.default.comment.delete({
         where: { comment_id: commentId },
     });
+    const collegeId = yield prisma_1.default.post.findUnique({
+        select: {
+            College: {
+                select: {
+                    college_id: true,
+                },
+            },
+        },
+        where: { post_id: comment.post_id },
+    });
+    if (!collegeId) {
+        return res.status(404).json({ message: "College not found" });
+    }
+    yield (0, redis_1.deleteCachedPosts)(collegeId.College.college_id);
     return res.status(200).json({ message: "Comment deleted" });
 }));
 exports.deleteComment = deleteComment;
@@ -430,6 +457,11 @@ const unlikePost = (0, express_async_handler_1.default)((req, res) => __awaiter(
         where: { post_id: postId },
         select: {
             likes: true,
+            College: {
+                select: {
+                    college_id: true,
+                },
+            },
         },
     });
     if (!like) {
@@ -450,6 +482,7 @@ const unlikePost = (0, express_async_handler_1.default)((req, res) => __awaiter(
             like_id: like.like_id,
         },
     });
+    yield (0, redis_1.deleteCachedPosts)(post.College.college_id);
     return res.status(200).json({ updatedPost });
 }));
 exports.unlikePost = unlikePost;
