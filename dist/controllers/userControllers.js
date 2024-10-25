@@ -22,6 +22,7 @@ const academic_email_verifier_1 = require("academic-email-verifier");
 const checkAcademic_1 = __importDefault(require("../mail/checkAcademic"));
 const registerSchema_1 = require("../validation/registerSchema");
 const redis_1 = __importDefault(require("../lib/redis"));
+const redis_2 = require("../lib/redis");
 const googleSignInOrSignUp = (0, express_async_handler_1.default)(
 //@ts-ignore
 (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -632,7 +633,19 @@ const updateDetails = (0, express_async_handler_1.default)((req, res) => __await
             pic,
         },
     });
+    const college = yield prisma_1.default.userCourse.findFirst({
+        where: {
+            user_id: userId
+        },
+        select: {
+            college_id: true
+        }
+    });
+    if (!college) {
+        return res.status(404).json({ message: "User not found" });
+    }
     yield redis_1.default.del(`user:${userId}`);
+    yield (0, redis_2.deleteCachedPosts)(college.college_id);
     return res.status(200).json({ message: "Details updated" });
 }));
 exports.updateDetails = updateDetails;
